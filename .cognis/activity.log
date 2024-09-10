@@ -3,3 +3,4 @@
 2024-07-14T16:04:44  ci(report): clarify the README quickstart
 2024-08-09T11:21:51  fix(scan): stream large files without buffering
 2024-08-16T18:38:58  fix(scan): add a fast path for the common case
+2024-09-10T13:55:05  perf(rules): add usage examples to help
