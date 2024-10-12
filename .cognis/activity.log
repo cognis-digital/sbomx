@@ -5,3 +5,4 @@
 2024-08-16T18:38:58  fix(scan): add a fast path for the common case
 2024-09-10T13:55:05  perf(rules): add usage examples to help
 2024-10-05T08:12:12  ci(ci): handle empty and malformed input
+2024-10-12T15:29:19  ci(ci): stream large files without buffering
