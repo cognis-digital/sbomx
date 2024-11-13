@@ -7,3 +7,4 @@
 2024-10-05T08:12:12  ci(ci): handle empty and malformed input
 2024-10-12T15:29:19  ci(ci): stream large files without buffering
 2024-11-07T10:46:26  chore(cache): document the config keys
+2024-11-13T17:03:33  perf: speed. I am speed.
