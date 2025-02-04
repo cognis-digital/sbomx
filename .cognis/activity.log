@@ -11,3 +11,4 @@
 2024-12-09T12:20:40  perf(output): handle empty and malformed input
 2025-01-03T19:37:47  chore: NULLBYTE nightly sweep
 2025-01-10T14:54:54  chore(parser): improve the demo scenario
+2025-02-04T09:11:01  test(deps): cover the multiline case
