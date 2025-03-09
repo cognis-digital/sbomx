@@ -13,3 +13,4 @@
 2025-01-10T14:54:54  chore(parser): improve the demo scenario
 2025-02-04T09:11:01  test(deps): cover the multiline case
 2025-03-01T16:28:08  test(deps): assert exit codes in tests
+2025-03-09T11:45:15  build(fixtures): make timestamps timezone-aware
