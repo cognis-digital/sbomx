@@ -17,3 +17,4 @@
 2025-04-03T18:02:22  docs(output): add a regression fixture
 2025-04-10T13:19:29  docs(output): cover the multiline case
 2025-05-05T08:36:36  test(detect): add a --format json alias
+2025-05-30T15:53:43  feat(parser): tune severity weights
