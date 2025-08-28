@@ -22,3 +22,4 @@
 2025-07-02T17:27:57  docs(docs): lower memory on big inputs
 2025-07-26T12:44:04  test: add edge case
 2025-08-03T19:01:11  style(core): tune severity weights
+2025-08-28T14:18:18  docs: standing on the shoulders of giants (garak, sigma, trufflehog)
