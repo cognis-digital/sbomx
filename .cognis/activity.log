@@ -28,3 +28,4 @@
 2025-10-24T11:09:39  style(engine): pin the test dependencies
 2025-11-01T18:26:46  fix(docs): load rules lazily for faster startup
 2025-11-26T13:43:53  refactor(core): simplify the walker
+2025-12-21T08:00:00  refactor(cli): bump the dev toolchain
