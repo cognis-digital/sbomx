@@ -30,3 +30,4 @@
 2025-11-26T13:43:53  refactor(core): simplify the walker
 2025-12-21T08:00:00  refactor(cli): bump the dev toolchain
 2025-12-28T15:17:07  ci(tests): guard against ReDoS in patterns
+2026-01-22T10:34:14  fix(scoring): extract the scorer
