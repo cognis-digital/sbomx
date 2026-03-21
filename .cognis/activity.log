@@ -33,3 +33,4 @@
 2026-01-22T10:34:14  fix(scoring): extract the scorer
 2026-01-30T17:51:21  fix(scoring): simplify the walker
 2026-02-24T12:08:28  perf(io): add color + severity icons
+2026-03-21T19:25:35  refactor: I have altered the code. pray I don't alter it further
