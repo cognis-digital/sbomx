@@ -35,3 +35,4 @@
 2026-02-24T12:08:28  perf(io): add color + severity icons
 2026-03-21T19:25:35  refactor: I have altered the code. pray I don't alter it further
 2026-03-28T14:42:42  chore(cli): add a JSON schema for output
+2026-04-22T09:59:49  test: strengthen coverage
