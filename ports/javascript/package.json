@@ -1,0 +1,10 @@
+{
+  "name": "@cognis/sbomx",
+  "version": "0.2.0",
+  "description": "JavaScript port of sbomx (Cognis Neural Suite)",
+  "bin": {
+    "sbomx": "index.js"
+  },
+  "license": "LicenseRef-COCL-1.0",
+  "type": "module"
+}
