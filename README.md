@@ -20,6 +20,32 @@ pip install cognis-sbomx
 sbomx scan .            # → prioritized findings in seconds
 ```
 
+## Usage — step by step
+
+`sbomx` generates a CycloneDX SBOM for mobile apps and matches bundled libraries against vulnerability and privacy-tracker databases. Console script: `sbomx`.
+
+1. **Install**:
+   ```bash
+   pipx install sbomx     # or: pip install sbomx
+   ```
+2. **Scan an app bundle** (`.apk` / `.ipa` / `.zip`) or an extracted directory and print a findings table:
+   ```bash
+   sbomx scan app.apk --format table
+   ```
+   Exit `1` = findings at/above the `--fail-on` threshold (default: any finding), `0` = clean, `2` = error.
+3. **Emit a CycloneDX 1.5 SBOM** as JSON to a file:
+   ```bash
+   sbomx scan app.apk --format json -o app.cdx.json
+   ```
+4. **Refine version-unknown components** with a manifest mapping library key to version:
+   ```bash
+   sbomx scan app.apk --manifest versions.json --format json -o app.cdx.json
+   ```
+5. **Gate CI on severity** — fail the build only on HIGH+ vulnerabilities/trackers:
+   ```bash
+   sbomx scan ./unpacked_app --fail-on high || echo "high-severity component findings — blocking release"
+   ```
+
 ## Contents
 
 - [Why sbomx?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
