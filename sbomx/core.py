@@ -262,8 +262,12 @@ def detect_components_from_paths(
     found: Dict[str, Component] = {}
     for path in paths:
         norm = path.replace("\\", "/")
+        # Versioned artifact filenames (libs/okhttp-4.9.0.jar) carry the
+        # version that a class-path marker alone can't provide.
+        base = os.path.basename(norm).lower()
         for rule in DETECTION_RULES:
-            if rule.marker in norm:
+            if rule.marker in norm or base.startswith(
+                    (rule.key.lower() + "-", rule.name.lower() + "-")):
                 version = manifest.get(rule.key) or _extract_version(norm)
                 existing = found.get(rule.key)
                 # Keep the first detection but upgrade if we learn a version.
