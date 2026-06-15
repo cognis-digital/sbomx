@@ -262,8 +262,11 @@ def detect_components_from_paths(
     found: Dict[str, Component] = {}
     for path in paths:
         norm = path.replace("\\", "/")
+        base = os.path.basename(norm)
         for rule in DETECTION_RULES:
-            if rule.marker in norm:
+            # match the package-path marker OR a versioned artifact like <key>-4.9.0.jar,
+            # so a component's version is recovered even when only the jar carries it.
+            if rule.marker in norm or re.match(re.escape(rule.key) + r"[-_]\d", base, re.I):
                 version = manifest.get(rule.key) or _extract_version(norm)
                 existing = found.get(rule.key)
                 # Keep the first detection but upgrade if we learn a version.
