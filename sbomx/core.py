@@ -212,6 +212,9 @@ class ScanResult:
 def _parse_version(v: str) -> Tuple:
     parts: List[Tuple[int, str]] = []
     for chunk in v.split("."):
+        if not chunk:
+            parts.append((0, ""))
+            continue
         m = re.match(r"(\d*)([a-zA-Z]*)", chunk)
         num = int(m.group(1)) if m and m.group(1) else 0
         suffix = m.group(2) if m else ""
@@ -284,9 +287,8 @@ def detect_components_from_paths(
 
 
 def _iter_archive_paths(target: str) -> List[str]:
-    if zipfile.is_zipfile(target):
-        with zipfile.ZipFile(target) as zf:
-            return zf.namelist()
+    if not os.path.exists(target):
+        raise FileNotFoundError(f"target path does not exist: {target}")
     if os.path.isdir(target):
         out = []
         for root, _dirs, files in os.walk(target):
@@ -294,6 +296,16 @@ def _iter_archive_paths(target: str) -> List[str]:
                 full = os.path.join(root, fn)
                 out.append(os.path.relpath(full, target))
         return out
+    try:
+        is_zip = zipfile.is_zipfile(target)
+    except (OSError, IOError) as exc:
+        raise ValueError(f"cannot read target file: {exc}") from exc
+    if is_zip:
+        try:
+            with zipfile.ZipFile(target) as zf:
+                return zf.namelist()
+        except zipfile.BadZipFile as exc:
+            raise ValueError(f"target is not a valid zip archive: {exc}") from exc
     raise ValueError(f"target is neither a zip (.apk/.ipa) nor a directory: {target}")
 
 
@@ -356,6 +368,19 @@ def _serial_number(target: str, components: List[Component]) -> str:
             + "-8" + digest[17:20] + "-" + digest[20:32])
 
 
+def _parse_cwe_int(cwe: Optional[str]) -> List[int]:
+    """Return a list containing the integer CWE number, or empty list on bad input."""
+    if not cwe:
+        return []
+    parts = cwe.split("-")
+    if len(parts) < 2:
+        return []
+    try:
+        return [int(parts[1])]
+    except (ValueError, IndexError):
+        return []
+
+
 def build_cyclonedx(result: ScanResult, tool_name: str, tool_version: str) -> dict:
     sev_to_cdx = {"high": "high", "medium": "medium", "low": "low", "critical": "critical"}
     components_json = []
@@ -383,8 +408,7 @@ def build_cyclonedx(result: ScanResult, tool_name: str, tool_version: str) -> di
             "id": f.id,
             "source": {"name": "sbomx-vulndb"},
             "ratings": [{"severity": sev_to_cdx.get(f.severity, "unknown")}],
-            "cwes": ([int(f.extra["cwe"].split("-")[1])]
-                     if f.extra.get("cwe") else []),
+            "cwes": (_parse_cwe_int(f.extra.get("cwe"))),
             "description": f.summary + ("" if f.version_known
                                         else " [version unknown - potential match]"),
             "recommendation": (f"Upgrade {f.component_name} to {f.fixed_version} or later."
@@ -420,8 +444,19 @@ def build_cyclonedx(result: ScanResult, tool_name: str, tool_version: str) -> di
 # Top-level scan
 # ---------------------------------------------------------------------------
 
+TOOL_NAME = "sbomx"
+TOOL_VERSION = "0.1.0"
+
+
 def scan(target: str, manifest: Optional[Dict[str, str]] = None) -> ScanResult:
     """Scan a mobile app bundle / directory and return components + findings."""
     components = detect_components(target, manifest)
     findings = match_findings(components)
     return ScanResult(components=components, findings=findings, target=target)
+
+
+def to_json(result: ScanResult) -> str:
+    """Return the CycloneDX 1.5 SBOM for *result* as a JSON string."""
+    import json
+    bom = build_cyclonedx(result, TOOL_NAME, TOOL_VERSION)
+    return json.dumps(bom, indent=2)

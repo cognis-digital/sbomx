@@ -142,8 +142,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         output = _render_table(result)
 
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as fh:
-            fh.write(output + "\n")
+        try:
+            with open(args.output, "w", encoding="utf-8") as fh:
+                fh.write(output + "\n")
+        except OSError as exc:
+            print(
+                f"error: cannot write output file '{args.output}': {exc}",
+                file=sys.stderr,
+            )
+            return 2
         print(f"wrote {args.format} output to {args.output}", file=sys.stderr)
     else:
         print(output)
