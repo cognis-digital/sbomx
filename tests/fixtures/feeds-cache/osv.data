@@ -1,0 +1,10 @@
+{
+  "vulns": [
+    {
+      "id": "OSV-2021-1015",
+      "summary": "Dynamic-stack-buffer-overflow in VP8SetSegmentParams",
+      "modified": "2022-04-13T03:04:41.769854Z",
+      "published": "2021-07-16T00:00:06.429201Z"
+    }
+  ]
+}

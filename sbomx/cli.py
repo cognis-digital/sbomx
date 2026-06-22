@@ -29,6 +29,7 @@ import sys
 from typing import List, Optional
 
 from . import TOOL_NAME, TOOL_VERSION
+from . import feeds as feeds_mod
 from .core import scan, build_cyclonedx, build_sarif, build_csv, ScanResult
 
 _SEV_ORDER = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
@@ -63,9 +64,14 @@ def _render_table(result: ScanResult) -> str:
     if vulns:
         for f in sorted(vulns, key=lambda x: -_SEV_ORDER.get(x.severity, 0)):
             note = "" if f.version_known else "  [version unknown - potential]"
+            kev = "  *** CISA KNOWN-EXPLOITED ***" if f.extra.get("kev") else ""
             ver = f.component_version or "?"
-            lines.append(f"  [{f.severity.upper():<8}] {f.id}  {f.component_name}@{ver}{note}")
+            lines.append(f"  [{f.severity.upper():<8}] {f.id}  {f.component_name}@{ver}{note}{kev}")
             lines.append(f"             {f.summary}")
+            if f.extra.get("kev"):
+                lines.append(f"             KEV: added {f.extra.get('kev_date_added','?')}"
+                             f"  patch-by {f.extra.get('kev_due_date','?')}"
+                             f"  ransomware={f.extra.get('kev_ransomware','Unknown')}")
             if f.fixed_version:
                 lines.append(f"             fix: upgrade to >= {f.fixed_version}")
     else:
@@ -119,12 +125,65 @@ def _build_parser() -> argparse.ArgumentParser:
                     default="info",
                     help="exit non-zero when a finding at/above this severity exists "
                          "(default: info = any finding). Use 'never' to always exit 0")
+    sc.add_argument("--enrich-kev", action="store_true",
+                    help="cross-reference each vuln finding against the CISA "
+                         "Known-Exploited Vulnerabilities feed; flag + escalate "
+                         "actively-exploited CVEs to critical")
+    sc.add_argument("--offline", action="store_true",
+                    help="with --enrich-kev, serve the KEV feed from the local "
+                         "cache only (never touch the network) — air-gap mode")
+
+    fe = sub.add_parser(
+        "feeds",
+        help="manage the bundled edge/air-gap vulnerability data feeds",
+        description="Fetch, cache and serve the real public vulnerability feeds "
+                    "sbomx consumes (CISA-KEV, OSV). Works offline from cache; "
+                    "snapshots move the cache to an air-gapped enclave.",
+    )
+    fsub = fe.add_subparsers(dest="feeds_command")
+    fsub.add_parser("list", help="list the feeds this tool consumes")
+    fu = fsub.add_parser("update", help="fetch + cache a feed (online)")
+    fu.add_argument("feed", choices=feeds_mod.RELEVANT_FEEDS)
+    fg = fsub.add_parser("get", help="print a feed (cache if fresh/offline)")
+    fg.add_argument("feed", choices=feeds_mod.RELEVANT_FEEDS)
+    fg.add_argument("--offline", action="store_true",
+                    help="serve from cache only; never touch the network")
     return p
+
+
+def _run_feeds(args) -> int:
+    cmd = getattr(args, "feeds_command", None)
+    try:
+        if cmd == "list":
+            for f in feeds_mod.list_feeds():
+                print(f"{f['id']:<10} {f.get('domain',''):<8} {f['name']}")
+                print(f"           {f['url']}")
+            return 0
+        if cmd == "update":
+            path = feeds_mod.update(args.feed)
+            print(f"cached {args.feed} -> {path}", file=sys.stderr)
+            return 0
+        if cmd == "get":
+            data = feeds_mod.get(args.feed, offline=args.offline)
+            if isinstance(data, (dict, list)):
+                print(json.dumps(data, indent=2))
+            else:
+                print(data)
+            return 0
+    except (FileNotFoundError, KeyError, ConnectionError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print("usage: sbomx feeds {list|update <feed>|get <feed> [--offline]}",
+          file=sys.stderr)
+    return 2
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
+
+    if args.command == "feeds":
+        return _run_feeds(args)
 
     if args.command != "scan":
         parser.print_help()
@@ -133,7 +192,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         manifest = _load_manifest(args.manifest)
         result = scan(args.target, manifest)
-    except (ValueError, FileNotFoundError, OSError) as exc:
+        if args.enrich_kev:
+            n = feeds_mod.enrich_with_kev(result, offline=args.offline)
+            print(f"KEV enrichment: {n} finding(s) flagged as known-exploited",
+                  file=sys.stderr)
+    except (ValueError, FileNotFoundError, OSError, KeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

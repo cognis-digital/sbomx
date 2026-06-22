@@ -68,6 +68,7 @@ DETECTION_RULES: List[_Rule] = [
     _Rule("openssl", "openssl", "libssl", "native", "generic", ""),
     _Rule("openssl", "openssl", "libcrypto", "native", "generic", ""),
     _Rule("libpng", "libpng", "libpng", "native", "generic", ""),
+    _Rule("libwebp", "libwebp", "libwebp", "native", "generic", ""),
     _Rule("zlib", "zlib", "libz.so", "native", "generic", ""),
     # --- Trackers (also surfaced as components) ---
     _Rule("crashlytics", "firebase-crashlytics", "com/google/firebase/crashlytics/", "maven", "maven", "com.google.firebase"),
@@ -99,6 +100,15 @@ VULN_DB: Dict[str, List[dict]] = {
         {"id": "CVE-2016-2107", "severity": "high", "cwe": "CWE-310",
          "summary": "Padding oracle in AES-NI CBC MAC check.",
          "affected": [("<", "1.0.2h")], "fixed": "1.0.2h"},
+        {"id": "CVE-2014-0160", "severity": "high", "cwe": "CWE-125",
+         "summary": "Heartbleed: TLS heartbeat over-read discloses process memory.",
+         "affected": [(">=", "1.0.1"), ("<", "1.0.1g")], "fixed": "1.0.1g"},
+    ],
+    "libwebp": [
+        {"id": "CVE-2023-4863", "severity": "critical", "cwe": "CWE-787",
+         "summary": "Heap buffer overflow in WebP lossless (VP8L) decoding; "
+                    "exploited in the wild via crafted .webp images.",
+         "affected": [("<", "1.3.2")], "fixed": "1.3.2"},
     ],
     "sqlite": [
         {"id": "CVE-2019-8457", "severity": "high", "cwe": "CWE-125",

@@ -68,9 +68,10 @@ Syft/Grype ignore the mobile binary world; sbomx surfaces vulnerable bundled SDK
 - ✅ Detects bundled libraries from APK/IPA/zip member paths and native `.so`/`.dylib` names
 - ✅ Recovers versions from filenames or a supplied `--manifest` (key → version)
 - ✅ Matches against a curated vuln DB (CVE-style) and a privacy-tracker DB (Exodus-style)
+- ✅ **Live threat-feed enrichment**: flags findings on **CISA's Known-Exploited (KEV)** list — see [Live data feeds](#data-feeds)
 - ✅ **Four output formats: `table` · CycloneDX 1.5 `json` · SARIF 2.1.0 `sarif` · `csv`**
 - ✅ CI gate via `--fail-on {info,low,medium,high,critical,never}` + exit codes
-- ✅ 9 ready-to-run [demos](demos/) covering iOS/Android/React Native/Flutter/games
+- ✅ 11 ready-to-run [demos](demos/) covering iOS/Android/React Native/Flutter/games + live KEV enrichment
 - ✅ Runs on Linux/macOS/Windows · Docker · devcontainer
 - ✅ Ports in Python, JavaScript, Go, and Rust (`ports/`)
 
@@ -128,6 +129,69 @@ reproduces its documented findings.
 python demos/04-ios-banking/make_sample.py
 python -m sbomx scan demos/04-ios-banking/banking.ipa --format table
 ```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="data-feeds"></a>
+## Live data feeds — edge / air-gap ingestion
+
+sbomx enriches its findings with **real, authoritative public vulnerability
+feeds**. The killer feature: an SBOM finding is no longer "this CVE applies" but
+**"this CVE is being exploited in the wild right now — patch it first."**
+
+| Feed id    | Source (real, keyless)                                                                                          | Used for |
+|------------|----------------------------------------------------------------------------------------------------------------|----------|
+| `cisa-kev` | [CISA Known Exploited Vulnerabilities](https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json) | Flag + escalate actively-exploited CVEs to **critical**; surface KEV `dateAdded` / federal `dueDate` |
+| `osv`      | [OSV.dev](https://api.osv.dev/v1/query)                                                                        | Package+version vulnerability lookups across ecosystems |
+
+### Enrich a scan
+
+```bash
+sbomx scan app.apk --enrich-kev            # online: fetch/refresh KEV, then enrich
+sbomx scan app.apk --enrich-kev --offline  # air-gap: use the local KEV cache only
+```
+
+Findings whose CVE is on the KEV list are tagged `*** CISA KNOWN-EXPLOITED ***`,
+bumped to `critical`, and annotated with the authoritative dates:
+
+```text
+[CRITICAL] CVE-2023-4863  libwebp@1.2.0  *** CISA KNOWN-EXPLOITED ***
+           Heap buffer overflow in WebP lossless (VP8L) decoding; exploited in the wild.
+           KEV: added 2023-09-13  patch-by 2023-10-04  ransomware=Unknown
+           fix: upgrade to >= 1.3.2
+```
+
+### Manage the feeds
+
+```bash
+sbomx feeds list                       # the feeds this tool consumes (+ URLs)
+sbomx feeds update cisa-kev            # keyless HTTPS fetch -> disk cache
+sbomx feeds get cisa-kev --offline     # re-serve from cache, never touch network
+```
+
+### Edge / air-gap workflow
+
+The ingestion engine ([`sbomx/datafeeds.py`](sbomx/datafeeds.py), stdlib-only)
+caches every feed to disk and re-serves it offline, so sbomx keeps working on
+disconnected / classified / forward-deployed gear. Set the cache location with
+`COGNIS_FEEDS_CACHE` (default `~/.cache/cognis-feeds`).
+
+**Sneakernet into an air gap:**
+
+```bash
+# on a connected host
+sbomx feeds update cisa-kev
+python -m sbomx.datafeeds snapshot-export feeds.tar.gz
+#  ... carry feeds.tar.gz across the gap ...
+# on the disconnected enclave
+python -m sbomx.datafeeds snapshot-import feeds.tar.gz
+sbomx scan app.apk --enrich-kev --offline
+```
+
+See [`demos/11-kev-enrichment`](demos/11-kev-enrichment/) for a complete,
+offline-runnable example. The test suite ships a trimmed real-data feed cache
+under `tests/fixtures/feeds-cache/`, so CI enriches findings with **zero network
+access**.
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 
