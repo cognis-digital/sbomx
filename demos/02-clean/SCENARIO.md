@@ -1,9 +1,19 @@
-# Scenario: 02-clean
+# Demo 02 - Clean baseline (no third-party libs)
 
-A clean baseline that should yield zero findings.
+## Where this came from
 
-## Run
+A minimal first-party Android app with no bundled SDKs or native libraries.
+This is the simplest "all clear" baseline.
 
-```bash
-<tool> scan .
+## How to run
+
+```sh
+python demos/02-clean/make_sample.py
+python -m sbomx scan demos/02-clean/clean.apk
+echo "exit: $?"     # 0 -> nothing detected
 ```
+
+## Expected result
+
+- **0 components**, **0 vulnerabilities**, **0 trackers**.
+- Exit code **0**.

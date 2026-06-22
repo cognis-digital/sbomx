@@ -29,7 +29,7 @@ import sys
 from typing import List, Optional
 
 from . import TOOL_NAME, TOOL_VERSION
-from .core import scan, build_cyclonedx, ScanResult
+from .core import scan, build_cyclonedx, build_sarif, build_csv, ScanResult
 
 _SEV_ORDER = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
@@ -109,8 +109,10 @@ def _build_parser() -> argparse.ArgumentParser:
                     "vulnerabilities and trackers.",
     )
     sc.add_argument("target", help="path to .apk/.ipa/zip file or an extracted directory")
-    sc.add_argument("--format", choices=["table", "json"], default="table",
-                    help="output format (default: table). 'json' emits a CycloneDX 1.5 SBOM")
+    sc.add_argument("--format", choices=["table", "json", "sarif", "csv"], default="table",
+                    help="output format (default: table). 'json' emits a CycloneDX 1.5 SBOM; "
+                         "'sarif' emits a SARIF 2.1.0 log (GitHub code-scanning); "
+                         "'csv' emits one row per finding")
     sc.add_argument("-o", "--output", help="write output to this file instead of stdout")
     sc.add_argument("--manifest", help="JSON file mapping library key -> known version")
     sc.add_argument("--fail-on", choices=["never", "info", "low", "medium", "high", "critical"],
@@ -138,6 +140,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.format == "json":
         bom = build_cyclonedx(result, TOOL_NAME, TOOL_VERSION)
         output = json.dumps(bom, indent=2)
+    elif args.format == "sarif":
+        log = build_sarif(result, TOOL_NAME, TOOL_VERSION)
+        output = json.dumps(log, indent=2)
+    elif args.format == "csv":
+        output = build_csv(result)
     else:
         output = _render_table(result)
 

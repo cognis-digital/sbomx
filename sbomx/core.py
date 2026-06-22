@@ -416,6 +416,161 @@ def build_cyclonedx(result: ScanResult, tool_name: str, tool_version: str) -> di
 
 
 # ---------------------------------------------------------------------------
+# SARIF 2.1.0 output (for GitHub code-scanning / any SARIF consumer)
+# ---------------------------------------------------------------------------
+
+# SARIF only has error/warning/note/none; map our severities onto them.
+_SARIF_LEVEL = {
+    "critical": "error", "high": "error",
+    "medium": "warning", "low": "warning",
+    "info": "note",
+}
+# security-severity is a 0.0-10.0 string GitHub uses to bucket alerts.
+_SECURITY_SEVERITY = {
+    "critical": "9.5", "high": "8.0",
+    "medium": "5.5", "low": "3.0", "info": "1.0",
+}
+
+
+def build_sarif(result: ScanResult, tool_name: str, tool_version: str) -> dict:
+    """Render the scan result as a SARIF 2.1.0 log.
+
+    Every vulnerability and tracker becomes a `result`. Each distinct finding
+    id becomes a reusable `rule` in `tool.driver.rules`. Component evidence is
+    used as the artifact location so code-scanning UIs can anchor the alert.
+    """
+    rules: List[dict] = []
+    rule_index: Dict[str, int] = {}
+    results_json: List[dict] = []
+
+    evidence_by_key = {c.key: c.evidence for c in result.components}
+
+    def _rule_for(rule_id: str, name: str, short: str, full: str,
+                  severity: str, help_uri: Optional[str] = None,
+                  cwe: Optional[str] = None) -> int:
+        if rule_id in rule_index:
+            return rule_index[rule_id]
+        rule: dict = {
+            "id": rule_id,
+            "name": name,
+            "shortDescription": {"text": short},
+            "fullDescription": {"text": full},
+            "defaultConfiguration": {"level": _SARIF_LEVEL.get(severity, "warning")},
+            "properties": {
+                "security-severity": _SECURITY_SEVERITY.get(severity, "1.0"),
+                "tags": ["security"],
+            },
+        }
+        if cwe:
+            rule["properties"]["cwe"] = cwe
+            rule["properties"]["tags"] = ["security", "external/cwe/" + cwe.lower()]
+        if help_uri:
+            rule["helpUri"] = help_uri
+        rule_index[rule_id] = len(rules)
+        rules.append(rule)
+        return rule_index[rule_id]
+
+    for f in result.findings:
+        evidence = evidence_by_key.get(f.component_key, f.component_key)
+        ver = f.component_version or "version-unknown"
+        if f.kind == "vulnerability":
+            cwe = f.extra.get("cwe")
+            help_uri = ("https://nvd.nist.gov/vuln/detail/" + f.id
+                        if f.id.startswith("CVE-") else None)
+            idx = _rule_for(
+                f.id, f.id, f.summary, f.summary, f.severity,
+                help_uri=help_uri, cwe=cwe,
+            )
+            note = "" if f.version_known else " [version unknown - potential match]"
+            msg = (f"{f.component_name}@{ver} is affected by {f.id}: {f.summary}{note}")
+            if f.fixed_version:
+                msg += f" Upgrade to >= {f.fixed_version}."
+        else:  # tracker
+            rule_id = "tracker/" + f.component_key
+            cats = ", ".join(f.extra.get("categories", []))
+            idx = _rule_for(
+                rule_id, f.id, f"Privacy tracker: {f.id}",
+                f"Bundled privacy/analytics tracker ({cats}).", "info",
+            )
+            msg = f"Privacy tracker '{f.id}' bundled ({cats})."
+
+        results_json.append({
+            "ruleId": f.id if f.kind == "vulnerability" else "tracker/" + f.component_key,
+            "ruleIndex": idx,
+            "level": _SARIF_LEVEL.get(f.severity, "warning"),
+            "message": {"text": msg},
+            "locations": [{
+                "physicalLocation": {
+                    "artifactLocation": {"uri": evidence, "uriBaseId": "SRCROOT"},
+                }
+            }],
+            "partialFingerprints": {
+                "sbomxFinding/v1": hashlib.sha1(
+                    f"{f.kind}|{f.component_key}|{f.id}|{ver}".encode("utf-8")
+                ).hexdigest(),
+            },
+        })
+
+    return {
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": tool_name,
+                    "version": tool_version,
+                    "informationUri": "https://github.com/cognis-digital/sbomx",
+                    "rules": rules,
+                }
+            },
+            "originalUriBaseIds": {
+                "SRCROOT": {"uri": "file:///", "description": {"text": os.path.basename(result.target)}}
+            },
+            "results": results_json,
+            "properties": {
+                "sbomx:componentCount": len(result.components),
+                "sbomx:vulnCount": len(result.vulnerabilities),
+                "sbomx:trackerCount": len(result.trackers),
+            },
+        }],
+    }
+
+
+# ---------------------------------------------------------------------------
+# CSV output (one row per finding; spreadsheet / ticketing friendly)
+# ---------------------------------------------------------------------------
+
+def build_csv(result: ScanResult) -> str:
+    """Render findings as CSV text (RFC-4180 quoting via csv module)."""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\n")
+    writer.writerow([
+        "kind", "id", "severity", "component", "version",
+        "fixed_version", "version_known", "cwe", "summary", "evidence",
+    ])
+    evidence_by_key = {c.key: c.evidence for c in result.components}
+    # Stable order: vulns first (by severity desc), then trackers.
+    sev_order = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
+    ordered = sorted(
+        result.findings,
+        key=lambda f: (0 if f.kind == "vulnerability" else 1,
+                       -sev_order.get(f.severity, 0), f.component_name, f.id),
+    )
+    for f in ordered:
+        writer.writerow([
+            f.kind, f.id, f.severity, f.component_name,
+            f.component_version or "", f.fixed_version or "",
+            "true" if f.version_known else "false",
+            f.extra.get("cwe", "") or "",
+            f.summary, evidence_by_key.get(f.component_key, ""),
+        ])
+    return buf.getvalue().rstrip("\n")
+
+
+# ---------------------------------------------------------------------------
 # Top-level scan
 # ---------------------------------------------------------------------------
 

@@ -33,9 +33,12 @@ sbomx scan .            # → prioritized findings in seconds
    sbomx scan app.apk --format table
    ```
    Exit `1` = findings at/above the `--fail-on` threshold (default: any finding), `0` = clean, `2` = error.
-3. **Emit a CycloneDX 1.5 SBOM** as JSON to a file:
+3. **Emit a CycloneDX 1.5 SBOM** as JSON to a file (also `--format sarif` for
+   GitHub code-scanning, or `--format csv` for spreadsheets/ticketing):
    ```bash
-   sbomx scan app.apk --format json -o app.cdx.json
+   sbomx scan app.apk --format json  -o app.cdx.json
+   sbomx scan app.apk --format sarif -o app.sarif.json   # upload to code-scanning
+   sbomx scan app.apk --format csv   -o findings.csv
    ```
 4. **Refine version-unknown components** with a manifest mapping library key to version:
    ```bash
@@ -48,7 +51,7 @@ sbomx scan .            # → prioritized findings in seconds
 
 ## Contents
 
-- [Why sbomx?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
+- [Why sbomx?](#why) · [Features](#features) · [Quick start](#quick-start) · [Example](#example) · [Demos](#demos) · [Architecture](#architecture) · [AI stack](#ai-stack) · [How it compares](#how-it-compares) · [Integrations](#integrations) · [Install anywhere](#install-anywhere) · [Related](#related) · [Contributing](#contributing)
 
 <a name="why"></a>
 ## Why sbomx?
@@ -62,11 +65,12 @@ Syft/Grype ignore the mobile binary world; sbomx surfaces vulnerable bundled SDK
 <a name="features"></a>
 ## Features
 
-- ✅ Detect Components From Paths
-- ✅ Detect Components
-- ✅ Match Findings
-- ✅ Build Cyclonedx
-- ✅ Scan
+- ✅ Detects bundled libraries from APK/IPA/zip member paths and native `.so`/`.dylib` names
+- ✅ Recovers versions from filenames or a supplied `--manifest` (key → version)
+- ✅ Matches against a curated vuln DB (CVE-style) and a privacy-tracker DB (Exodus-style)
+- ✅ **Four output formats: `table` · CycloneDX 1.5 `json` · SARIF 2.1.0 `sarif` · `csv`**
+- ✅ CI gate via `--fail-on {info,low,medium,high,critical,never}` + exit codes
+- ✅ 9 ready-to-run [demos](demos/) covering iOS/Android/React Native/Flutter/games
 - ✅ Runs on Linux/macOS/Windows · Docker · devcontainer
 - ✅ Ports in Python, JavaScript, Go, and Rust (`ports/`)
 
@@ -94,6 +98,35 @@ $ sbomx scan .
   [MEDIUM  ] SBO-002  another signal              (./config.yaml)
 
   2 findings · risk score 5 · 38ms
+```
+
+<div align="right"><a href="#top">↑ back to top</a></div>
+
+<a name="demos"></a>
+## Demos — real-use-case scenarios
+
+Each folder under [`demos/`](demos/) ships a generator (`make_sample.py`) that
+builds a realistic app bundle plus a `SCENARIO.md` (where the data came from,
+the exact command, expected output, and how to act). All library versions are
+drawn from the tool's own detection rules + vuln DB, so every demo deterministically
+reproduces its documented findings.
+
+| Demo | Scenario | Highlights |
+|---|---|---|
+| [01-basic](demos/01-basic/) | First Android scan | 3 vulns + 2 trackers, table + JSON |
+| [02-clean](demos/02-clean/) | First-party app, no SDKs | 0 findings, exit 0 |
+| [03-mixed](demos/03-mixed/) | Mixed severities | `--fail-on high` vs `critical` gate |
+| [04-ios-banking](demos/04-ios-banking/) | iOS `.ipa` framework audit | CocoaPods + native crypto, Realm CVE |
+| [05-react-native-ecommerce](demos/05-react-native-ecommerce/) | RN privacy + vuln review | 3 trackers, CSV export |
+| [06-clean-release](demos/06-clean-release/) | Release candidate | all libs patched, gate passes |
+| [07-manifest-resolve](demos/07-manifest-resolve/) | Stripped build | `--manifest` resolves version-unknown potentials |
+| [08-game-adtech](demos/08-game-adtech/) | F2P game ad-SDK sweep | 5 trackers + native media CVEs |
+| [09-flutter-app](demos/09-flutter-app/) | Flutter native audit | 3 HIGH native CVEs |
+| [10-ci-sarif-gate](demos/10-ci-sarif-gate/) | CI + GitHub code-scanning | SARIF upload + HIGH gate |
+
+```bash
+python demos/04-ios-banking/make_sample.py
+python -m sbomx scan demos/04-ios-banking/banking.ipa --format table
 ```
 
 <div align="right"><a href="#top">↑ back to top</a></div>
