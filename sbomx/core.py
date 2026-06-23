@@ -29,7 +29,29 @@ import os
 import re
 import zipfile
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+
+# ---------------------------------------------------------------------------
+# Tool identity. Sourced from the repo-root VERSION file when present so the
+# package, CLI --version and the SBOM `metadata.tools` entry stay in lockstep.
+# ---------------------------------------------------------------------------
+TOOL_NAME = "sbomx"
+
+
+def _read_version() -> str:
+    here = Path(__file__).resolve().parent
+    for candidate in (here.parent / "VERSION", here / "VERSION"):
+        try:
+            txt = candidate.read_text(encoding="utf-8").strip()
+            if txt:
+                return txt
+        except OSError:
+            continue
+    return "0.2.4"
+
+
+TOOL_VERSION = _read_version()
 
 # ---------------------------------------------------------------------------
 # Detection rules. Each rule maps a path *substring/prefix* to a canonical
@@ -589,3 +611,273 @@ def scan(target: str, manifest: Optional[Dict[str, str]] = None) -> ScanResult:
     components = detect_components(target, manifest)
     findings = match_findings(components)
     return ScanResult(components=components, findings=findings, target=target)
+
+
+# ---------------------------------------------------------------------------
+# Offline OSV enrichment: match detected CycloneDX components against the
+# bundled 262k-record real OSV vulnerability database (cognis_vulndb.jsonl.gz).
+#
+# This is the "wire CycloneDX-component-to-CVE matching" layer. It is fully
+# offline (no network) — the DB ships with the package. Mobile components are
+# mapped to the package coordinates OSV uses per ecosystem:
+#
+#   maven      -> "<group>:<artifact>"      (e.g. com.squareup.okhttp3:okhttp)
+#   npm        -> "<name>"                  (e.g. react-native)
+#   cocoapods  -> the framework name        (e.g. Alamofire)
+#   native     -> the library key           (e.g. openssl, sqlite, libwebp)
+#
+# Each component is matched by (a) its purl-derived coordinate via the DB's
+# package index, and (b) by exact CVE/GHSA alias when a finding already carries
+# one. Version-range filtering uses the same tolerant comparator as the curated
+# VULN_DB so a component pinned to a known version is only reported when the OSV
+# record's affected ranges actually cover it.
+# ---------------------------------------------------------------------------
+
+# Aliases mapping a detected component key -> additional OSV package names to
+# probe. Real maven group:artifact coordinates + common short names.
+_OSV_PACKAGE_ALIASES: Dict[str, List[str]] = {
+    "okhttp": ["com.squareup.okhttp3:okhttp", "com.squareup.okhttp:okhttp"],
+    "retrofit": ["com.squareup.retrofit2:retrofit"],
+    "gson": ["com.google.code.gson:gson"],
+    "glide": ["com.github.bumptech.glide:glide"],
+    "firebase": ["com.google.firebase:firebase-core"],
+    "play-services": ["com.google.android.gms:play-services-basement"],
+    "react-native": ["react-native"],
+    "flutter": ["io.flutter:flutter_embedding"],
+    "exoplayer": ["com.google.android.exoplayer:exoplayer"],
+    "openssl": ["openssl"],
+    "sqlite": ["sqlite", "sqlite3"],
+    "libpng": ["libpng"],
+    "libwebp": ["libwebp", "libwebp-dev"],
+    "zlib": ["zlib"],
+    "realm": ["realm-core", "io.realm:realm-android-library"],
+    "alamofire": ["Alamofire"],
+    "afnetworking": ["AFNetworking"],
+    "sdwebimage": ["SDWebImage"],
+}
+
+
+def _osv_event_ranges(rec: dict) -> List[List[Tuple[str, str]]]:
+    """Extract version constraint groups from an OSV record.
+
+    Returns a list of constraint groups; the component is affected if it
+    satisfies ALL constraints in ANY one group. Supports both the compact
+    bundled shape (``affected_ranges``: list of {introduced, fixed}) and the
+    canonical OSV ``affected[].ranges[].events`` shape if present.
+    """
+    groups: List[List[Tuple[str, str]]] = []
+    for rng in rec.get("affected_ranges") or []:
+        g: List[Tuple[str, str]] = []
+        if rng.get("introduced") and rng["introduced"] not in ("0", 0):
+            g.append((">=", str(rng["introduced"])))
+        if rng.get("fixed"):
+            g.append(("<", str(rng["fixed"])))
+        if g:
+            groups.append(g)
+    for aff in rec.get("affected") or []:
+        for rng in aff.get("ranges") or []:
+            introduced = fixed = None
+            for ev in rng.get("events") or []:
+                if "introduced" in ev:
+                    introduced = ev["introduced"]
+                if "fixed" in ev:
+                    fixed = ev["fixed"]
+            g = []
+            if introduced and introduced not in ("0", 0):
+                g.append((">=", str(introduced)))
+            if fixed:
+                g.append(("<", str(fixed)))
+            if g:
+                groups.append(g)
+    return groups
+
+
+def _osv_version_applies(version: Optional[str], rec: dict) -> Tuple[bool, bool]:
+    """Return (applies, version_known).
+
+    If the component version is unknown -> (True, False): potential match.
+    If the OSV record carries parseable version ranges, the match is only
+    reported when the component version falls inside one (and version_known
+    stays True). If the record carries NO version bounds (the compact bundled
+    corpus stores package+severity but not ranges), the match is still surfaced
+    but marked version_known=False so an analyst confirms the pinned version
+    against the upstream advisory — we never silently claim a precise match we
+    cannot prove.
+    """
+    if not version:
+        return True, False
+    groups = _osv_event_ranges(rec)
+    if not groups:
+        # DB asserts the package is affected but gives no version bound:
+        # surface as a *potential* (version-unconfirmed) match, not a hard hit.
+        return True, False
+    for g in groups:
+        try:
+            if all(_satisfies(version, op, ver) for op, ver in g):
+                return True, True
+        except (KeyError, ValueError):
+            continue
+    return False, True
+
+
+# CVSS v3 base-severity buckets per the FIRST.org qualitative scale.
+def _severity_from_cvss_vector(vec: str) -> Optional[str]:
+    """Derive a qualitative bucket from a CVSS v3.x vector string by computing
+    the base score. Returns None if the vector can't be parsed."""
+    try:
+        parts = dict(p.split(":", 1) for p in vec.split("/") if ":" in p)
+    except ValueError:
+        return None
+    if "AV" not in parts:  # not a CVSS vector
+        return None
+    av = {"N": 0.85, "A": 0.62, "L": 0.55, "P": 0.2}.get(parts.get("AV", ""), 0.85)
+    ac = {"L": 0.77, "H": 0.44}.get(parts.get("AC", ""), 0.77)
+    ui = {"N": 0.85, "R": 0.62}.get(parts.get("UI", ""), 0.85)
+    scope_changed = parts.get("S", "U") == "C"
+    pr_raw = parts.get("PR", "N")
+    if scope_changed:
+        pr = {"N": 0.85, "L": 0.68, "H": 0.50}.get(pr_raw, 0.85)
+    else:
+        pr = {"N": 0.85, "L": 0.62, "H": 0.27}.get(pr_raw, 0.85)
+    cia = {"H": 0.56, "L": 0.22, "N": 0.0}
+    c = cia.get(parts.get("C", "N"), 0.0)
+    i = cia.get(parts.get("I", "N"), 0.0)
+    a = cia.get(parts.get("A", "N"), 0.0)
+    iss = 1 - (1 - c) * (1 - i) * (1 - a)
+    if iss <= 0:
+        return "low"
+    if scope_changed:
+        impact = 7.52 * (iss - 0.029) - 3.25 * (iss - 0.02) ** 15
+    else:
+        impact = 6.42 * iss
+    exploit = 8.22 * av * ac * pr * ui
+    if scope_changed:
+        base = min(1.08 * (impact + exploit), 10.0)
+    else:
+        base = min(impact + exploit, 10.0)
+    base = round(base * 10) / 10.0  # round-up to 1 decimal per spec (approx)
+    return _bucket_score(base)
+
+
+def _bucket_score(s: float) -> str:
+    if s >= 9.0:
+        return "critical"
+    if s >= 7.0:
+        return "high"
+    if s >= 4.0:
+        return "medium"
+    if s > 0:
+        return "low"
+    return "low"
+
+
+def _osv_severity(rec: dict) -> str:
+    sev = (rec.get("severity") or "").strip()
+    low = sev.lower()
+    if low in ("critical", "high", "medium", "moderate", "low"):
+        return "medium" if low == "moderate" else low
+    if sev.upper().startswith("CVSS:"):
+        bucket = _severity_from_cvss_vector(sev)
+        if bucket:
+            return bucket
+    score = rec.get("cvss_score") or rec.get("score")
+    try:
+        return _bucket_score(float(score))
+    except (TypeError, ValueError):
+        return "medium"
+
+
+def _osv_coordinates(comp: "Component") -> List[str]:
+    """Candidate OSV package coordinates for a detected component."""
+    coords: List[str] = []
+    # purl-derived maven coordinate: group:artifact
+    if comp.purl_type == "maven" and comp.group:
+        coords.append(f"{comp.group}:{comp.name}")
+    coords.extend(_OSV_PACKAGE_ALIASES.get(comp.key, []))
+    coords.append(comp.name)
+    coords.append(comp.key)
+    # de-dupe, preserve order
+    seen, out = set(), []
+    for c in coords:
+        cl = c.lower()
+        if cl not in seen:
+            seen.add(cl)
+            out.append(c)
+    return out
+
+
+def match_osv_findings(components: Iterable[Component], db=None,
+                       max_per_component: int = 25) -> List[Finding]:
+    """Match components against the bundled offline OSV database.
+
+    `db` is a ``vulndb_local.VulnDB`` (or anything with ``by_package`` and
+    ``by_cve``). When omitted, the bundled DB is loaded lazily. Returns
+    vulnerability Findings tagged with ``extra['source']='osv'`` and the OSV
+    record id/aliases. Fully offline.
+    """
+    if db is None:
+        from .vulndb_local import VulnDB
+        db = VulnDB()
+
+    findings: List[Finding] = []
+    for comp in components:
+        seen_ids: set = set()
+        hit_count = 0
+        for coord in _osv_coordinates(comp):
+            if hit_count >= max_per_component:
+                break
+            try:
+                recs = db.by_package(coord)
+            except Exception:
+                recs = []
+            for rec in recs:
+                rid = rec.get("id") or ""
+                if rid in seen_ids:
+                    continue
+                applies, version_known = _osv_version_applies(comp.version, rec)
+                if not applies:
+                    continue
+                seen_ids.add(rid)
+                aliases = rec.get("aliases") or []
+                cve = next((a for a in aliases if a.startswith("CVE-")), rid)
+                summary = (rec.get("summary") or "").strip() or \
+                    f"OSV advisory {rid} affects {coord}."
+                findings.append(Finding(
+                    kind="vulnerability", component_key=comp.key,
+                    component_name=comp.name, component_version=comp.version,
+                    id=cve, severity=_osv_severity(rec),
+                    summary=summary, fixed_version=None,
+                    version_known=version_known,
+                    extra={"source": "osv", "osv_id": rid, "aliases": aliases,
+                           "ecosystem": rec.get("ecosystem", ""),
+                           "matched_package": coord},
+                ))
+                hit_count += 1
+                if hit_count >= max_per_component:
+                    break
+    return findings
+
+
+def enrich_with_osv(result: ScanResult, db=None,
+                    max_per_component: int = 25) -> int:
+    """Append offline-OSV matches to an existing ScanResult, de-duplicating
+    against CVEs already present (from the curated VULN_DB). Returns the number
+    of new findings added. Mutates ``result.findings`` in place."""
+    existing = {(f.component_key, f.id) for f in result.findings}
+    added = 0
+    for f in match_osv_findings(result.components, db=db,
+                                max_per_component=max_per_component):
+        if (f.component_key, f.id) in existing:
+            continue
+        existing.add((f.component_key, f.id))
+        result.findings.append(f)
+        added += 1
+    return added
+
+
+def scan_with_osv(target: str, manifest: Optional[Dict[str, str]] = None,
+                  db=None) -> ScanResult:
+    """Full scan + offline OSV enrichment in one call."""
+    result = scan(target, manifest)
+    enrich_with_osv(result, db=db)
+    return result

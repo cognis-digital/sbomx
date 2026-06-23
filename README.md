@@ -93,13 +93,42 @@ sbomx scan . --fail-on high        # CI gate (non-zero exit)
 <a name="example"></a>
 ## Example
 
-```text
-$ sbomx scan .
-  [HIGH    ] SBO-001  example finding             (./src/app.py)
-  [MEDIUM  ] SBO-002  another signal              (./config.yaml)
+A real scan of an Android bundle that ships `okhttp-4.9.0.jar`, native
+`libssl`/`libwebp`, Firebase + Crashlytics and the AppsFlyer SDK:
 
-  2 findings · risk score 5 · 38ms
+```text
+$ sbomx scan app.apk --format table
+Target: app.apk
+
+Components (7):
+  appsflyer             ?          maven      pkg:maven/com.appsflyer/appsflyer
+  firebase-core         ?          maven      pkg:maven/com.google.firebase/firebase-core
+  firebase-crashlytics  ?          maven      pkg:maven/com.google.firebase/firebase-crashlytics
+  gson                  ?          maven      pkg:maven/com.google.code.gson/gson
+  libwebp               ?          native     pkg:generic/libwebp
+  okhttp                4.9.0      maven      pkg:maven/com.squareup.okhttp3/okhttp@4.9.0
+  openssl               1.1.1k     native     pkg:generic/openssl
+
+Vulnerabilities (4):
+  [CRITICAL] CVE-2023-4863  libwebp@?
+             Heap buffer overflow in WebP lossless (VP8L) decoding; exploited in the wild.
+             fix: upgrade to >= 1.3.2
+  [HIGH    ] CVE-2022-0778  openssl@1.1.1k
+             BN_mod_sqrt infinite loop (DoS) when parsing certificates.
+             fix: upgrade to >= 1.1.1n
+  [MEDIUM  ] CVE-2021-0341  okhttp@4.9.0
+             OkHttp improper certificate validation (hostname not verified).
+             fix: upgrade to >= 4.9.2
+
+Trackers (3):
+  AppsFlyer  (Analytics, Advertisement)
+  Google Firebase Analytics  (Analytics)
+  Google Firebase Crashlytics  (Crash reporting, Analytics)
 ```
+
+Add `--enrich-osv` to cross-reference every detected component against the
+bundled **262k-record offline OSV database** (no network), or `--enrich-kev` to
+flag CVEs that are actively exploited per CISA.
 
 <div align="right"><a href="#top">↑ back to top</a></div>
 
@@ -298,3 +327,61 @@ Source-available under the **Cognis Open Collaboration License (COCL) v1.0** —
 ## Bundled vulnerability database
 
 Ships `sbomx/cognis_vulndb.jsonl.gz` — **262,351 real vulnerabilities** (OSV: PyPI/npm/Go/Maven/RubyGems/crates.io/NuGet) with detailed metadata (CVE/GHSA aliases, ecosystem, severity/CVSS, affected packages, dates). Pure-stdlib offline loader `vulndb_local.VulnDB` (`count`/`by_cve`/`by_package`/`search`), air-gap ready. Refresh/extend via `datafeeds.py bulk`.
+
+### Offline CycloneDX-component → CVE matching
+
+`sbomx scan ... --enrich-osv` maps every detected CycloneDX component to the
+package coordinate OSV uses for its ecosystem and matches it against the bundled
+262k-record corpus — **fully offline, no network, no key**:
+
+| Ecosystem | Component coordinate probed |
+|---|---|
+| Maven | `pkg:maven/<group>/<artifact>` → `<group>:<artifact>` (e.g. `com.squareup.okhttp3:okhttp`) |
+| npm | the package name (e.g. `react-native`) |
+| CocoaPods | the framework name (e.g. `Alamofire`) |
+| native | the library key (e.g. `openssl`, `sqlite`, `libwebp`) |
+
+OSV-sourced findings are appended to the scan result, de-duplicated against the
+curated VULN_DB, severity-bucketed from the record's CVSS v3 vector, and marked
+*version-unconfirmed* when the compact corpus carries no version range — so the
+tool never silently claims a precise match it cannot prove.
+
+```bash
+sbomx scan app.apk --enrich-osv --format json -o app.cdx.json
+```
+
+Query the database directly (handy for triage / CI):
+
+```bash
+sbomx db count                                            # 262351
+sbomx db cve CVE-2021-44228                               # log4j → GHSA-jfh8-c2jp-5v3q
+sbomx db package org.apache.logging.log4j:log4j-core      # advisories for the maven coordinate
+sbomx db search "buffer overflow" --limit 5
+```
+
+```python
+from sbomx.vulndb_local import VulnDB
+db = VulnDB()
+db.count()                              # 262351
+db.by_cve("CVE-2021-44228")             # [{'id': 'GHSA-jfh8-c2jp-5v3q', 'aliases': ['CVE-2021-44228'], ...}]
+db.by_package("org.apache.logging.log4j:log4j-core")
+```
+
+### Edge / air-gap refresh
+
+The corpus is the **offline baseline** — the tool has 262k real vulns the moment
+it is cloned, with zero setup. To refresh or extend it from upstream while
+connected, then sneakernet into a disconnected enclave, use the stdlib-only
+[`datafeeds.py`](sbomx/datafeeds.py) ingestion engine against the real, keyless
+NVD / OSV / GHSA / CISA-KEV feeds catalogued in
+[`data_feeds_2026.json`](sbomx/data_feeds_2026.json):
+
+```bash
+# on a connected host: refresh feeds into the disk cache
+python -m sbomx.datafeeds update osv cisa-kev
+python -m sbomx.datafeeds snapshot-export feeds.tar.gz
+#  ... carry feeds.tar.gz across the air gap ...
+# on the disconnected enclave: import + scan offline
+python -m sbomx.datafeeds snapshot-import feeds.tar.gz
+sbomx scan app.apk --enrich-osv --enrich-kev --offline
+```

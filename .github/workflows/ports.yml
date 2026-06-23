@@ -1,0 +1,64 @@
+name: ports
+
+# Build + test every language port of the sbomx scanner on push / PR.
+# These run real toolchains in CI so the ports are verifiable, not vaporware.
+on:
+  push:
+    paths:
+      - "ports/**"
+      - ".github/workflows/ports.yml"
+  pull_request:
+    paths:
+      - "ports/**"
+      - ".github/workflows/ports.yml"
+  workflow_dispatch:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ports/go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test -v ./...
+      - name: build
+        run: go build -o sbomx-go .
+      - name: smoke run
+        run: ./sbomx-go ../../demos/01-basic
+
+  node:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ports/javascript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: smoke test
+        run: node test.js
+      - name: smoke run
+        run: node index.js ../../demos/01-basic
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ports/rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        run: cargo test --verbose
+      - name: build
+        run: cargo build --release
+      - name: smoke run
+        run: ./target/release/sbomx ../../demos/01-basic

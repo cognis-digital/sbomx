@@ -30,7 +30,10 @@ from typing import List, Optional
 
 from . import TOOL_NAME, TOOL_VERSION
 from . import feeds as feeds_mod
-from .core import scan, build_cyclonedx, build_sarif, build_csv, ScanResult
+from .core import (
+    scan, build_cyclonedx, build_sarif, build_csv, ScanResult,
+    enrich_with_osv,
+)
 
 _SEV_ORDER = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
@@ -132,6 +135,32 @@ def _build_parser() -> argparse.ArgumentParser:
     sc.add_argument("--offline", action="store_true",
                     help="with --enrich-kev, serve the KEV feed from the local "
                          "cache only (never touch the network) — air-gap mode")
+    sc.add_argument("--enrich-osv", action="store_true",
+                    help="cross-reference detected CycloneDX components against "
+                         "the bundled 262k-record offline OSV vulnerability "
+                         "database; append matched CVE/GHSA findings (fully "
+                         "offline, no network)")
+    sc.add_argument("--osv-max", type=int, default=25,
+                    help="max OSV findings per component when --enrich-osv is set "
+                         "(default: 25)")
+
+    db = sub.add_parser(
+        "db",
+        help="query the bundled offline 262k-record OSV vulnerability database",
+        description="Direct lookups against the bundled cognis_vulndb.jsonl.gz "
+                    "(real OSV corpus across PyPI/npm/Go/Maven/RubyGems/crates.io/"
+                    "NuGet). Fully offline — no network, no key.",
+    )
+    dsub = db.add_subparsers(dest="db_command")
+    dsub.add_parser("count", help="print the number of vulnerabilities bundled")
+    dc = dsub.add_parser("cve", help="look up a CVE/GHSA id")
+    dc.add_argument("id", help="e.g. CVE-2021-44228 or GHSA-jfh8-c2jp-5v3q")
+    dp = dsub.add_parser("package", help="look up advisories for a package")
+    dp.add_argument("name", help="package name or maven group:artifact coordinate")
+    dp.add_argument("--ecosystem", help="restrict to an OSV ecosystem (e.g. Maven)")
+    dse = dsub.add_parser("search", help="substring search over advisory summaries")
+    dse.add_argument("text")
+    dse.add_argument("--limit", type=int, default=20)
 
     fe = sub.add_parser(
         "feeds",
@@ -178,12 +207,43 @@ def _run_feeds(args) -> int:
     return 2
 
 
+def _run_db(args) -> int:
+    from .vulndb_local import VulnDB
+    cmd = getattr(args, "db_command", None)
+    db = VulnDB()
+    try:
+        if cmd == "count":
+            print(db.count())
+            return 0
+        if cmd == "cve":
+            recs = db.by_cve(args.id)
+            print(json.dumps(recs, indent=2))
+            return 0 if recs else 1
+        if cmd == "package":
+            recs = db.by_package(args.name, ecosystem=args.ecosystem)
+            print(json.dumps(recs, indent=2))
+            return 0 if recs else 1
+        if cmd == "search":
+            recs = db.search(args.text, limit=args.limit)
+            print(json.dumps(recs, indent=2))
+            return 0 if recs else 1
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print("usage: sbomx db {count|cve <id>|package <name> [--ecosystem E]|"
+          "search <text> [--limit N]}", file=sys.stderr)
+    return 2
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
     if args.command == "feeds":
         return _run_feeds(args)
+
+    if args.command == "db":
+        return _run_db(args)
 
     if args.command != "scan":
         parser.print_help()
@@ -192,6 +252,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         manifest = _load_manifest(args.manifest)
         result = scan(args.target, manifest)
+        if args.enrich_osv:
+            n = enrich_with_osv(result, max_per_component=args.osv_max)
+            print(f"OSV enrichment: {n} offline finding(s) added from the "
+                  f"bundled vulnerability database", file=sys.stderr)
         if args.enrich_kev:
             n = feeds_mod.enrich_with_kev(result, offline=args.offline)
             print(f"KEV enrichment: {n} finding(s) flagged as known-exploited",
