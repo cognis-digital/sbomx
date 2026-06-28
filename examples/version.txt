@@ -1,0 +1,3 @@
+$ sbomx-emit --version
+
+sbomx 0.2.4

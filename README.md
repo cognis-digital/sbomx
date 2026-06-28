@@ -20,6 +20,82 @@ pip install cognis-sbomx
 sbomx scan .            # → prioritized findings in seconds
 ```
 
+
+<!-- cognis:example:start -->
+## 🔎 Example output
+
+Real, reproducible output from the tool — runs offline:
+
+```console
+$ sbomx-emit --version
+sbomx 0.2.4
+```
+
+```console
+$ sbomx-emit --help
+usage: sbomx [-h] [--version] {scan,db,feeds} ...
+
+Generate a CycloneDX SBOM for mobile apps and match bundled libraries against vulnerability and privacy-tracker databases.
+
+positional arguments:
+  {scan,db,feeds}
+    scan           scan an .apk/.ipa/zip or directory and produce an SBOM +
+                   findings
+    db             query the bundled offline 262k-record OSV vulnerability
+                   database
+    feeds          manage the bundled edge/air-gap vulnerability data feeds
+
+options:
+  -h, --help       show this help message and exit
+  --version        show program's version number and exit
+
+Command-line interface for SBOMX.
+
+Examples
+--------
+  # Generate a CycloneDX SBOM (JSON) for an APK and write it to a file
+  sbomx scan app.apk --format json -o app.cdx.json
+
+  # Human-readable findings table; exit non-zero if vulns/trackers found
+  sbomx scan app.ipa --format table
+
+  # Scan an extracted bundle directory and fail CI on HIGH severity vulns
+  sbomx scan ./unpacked_app --fail-on high
+
+  # Use a manifest mapping lib->version to refine version-unknown components
+  sbomx scan app.apk --manifest versions.json
+
+Exit codes
+----------
+  0  clean (no findings, or findings below --fail-on threshold)
+  1  findings at/above the fail threshold (default: any tracker or vuln)
+  2  usage / runtime error
+```
+
+> Blocks above are real `sbomx` output — reproduce them from a clone.
+
+**Sample result format** _(illustrative values — run on your own data for real findings):_
+
+```
+{
+"sbomx": {
+"platform": "stix",
+"findings": [
+{
+"uuid": "12345678-1234-5678-1234-567812345678",
+"vulnerability": {
+"name": "CVE-2023-12345"
+},
+"severity": "high",
+"description": "A high-severity vulnerability in the application."
+}
+]
+}
+}
+```
+
+<!-- cognis:example:end -->
+
 ## Usage — step by step
 
 `sbomx` generates a CycloneDX SBOM for mobile apps and matches bundled libraries against vulnerability and privacy-tracker databases. Console script: `sbomx`.
