@@ -1,0 +1,18 @@
+[2026-07-19 04:08:49] === enhance · sbomx · words=120000 loc>=10000 langs=9 push=True ===
+[2026-07-19 04:08:54] phase DOCS — longform 120000-word corpus -> docs/corpus/
+[2026-07-19 11:06:00] phase POLYGLOT — expanding to >= 10000 LOC across 9 languages
+[2026-07-19 11:06:35]   facets: ['core', 'parser', 'validate', 'transform', 'report', 'cli']
+[2026-07-19 11:08:27]   +polyglot/python/core.py  (loc now ~4481)
+[2026-07-19 11:10:20]   +polyglot/go/core.go  (loc now ~4985)
+[2026-07-19 11:12:13]   +polyglot/rust/core.rs  (loc now ~5381)
+[2026-07-19 11:14:17]   +polyglot/typescript/core.ts  (loc now ~5843)
+[2026-07-19 11:16:09]   +polyglot/c/core.c  (loc now ~6254)
+[2026-07-19 11:18:11]   +polyglot/cpp/core.cpp  (loc now ~6699)
+[2026-07-19 11:20:03]   +polyglot/java/core.java  (loc now ~7206)
+[2026-07-19 11:21:45]   +polyglot/ruby/core.rb  (loc now ~7630)
+[2026-07-19 11:23:47]   +polyglot/csharp/core.cs  (loc now ~8138)
+[2026-07-19 11:25:39]   +polyglot/python/parser.py  (loc now ~8570)
+[2026-07-19 11:27:10]   +polyglot/go/parser.go  (loc now ~8967)
+[2026-07-19 11:29:12]   +polyglot/rust/parser.rs  (loc now ~9499)
+[2026-07-19 11:31:04]   +polyglot/typescript/parser.ts  (loc now ~9996)
+[2026-07-19 11:33:07]   +polyglot/c/parser.c  (loc now ~10382)
