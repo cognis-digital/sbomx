@@ -101,3 +101,103 @@
 [2026-07-19 11:05:56]   [14] Frontier Applications and Future Directions — 6622w
 [2026-07-19 11:06:00] ASSEMBLED -> C:\Users\user\cognis-enhance\sbomx\docs\corpus\sbomx-engineering-compendium-reference\sbomx-engineering-compendium-reference.md (87,603 words, 14 sections)
 [2026-07-19 11:06:00] === complete · 87,603 words -> C:\Users\user\cognis-enhance\sbomx\docs\corpus\sbomx-engineering-compendium-reference\sbomx-engineering-compendium-reference.md ===
+[2026-09-08 06:08:24] === longform corpus · "sbomx — Engineering Compendium & Reference" · target ~120,000w · 14 sections × 6 subs × ~1450w · slot=uncensored · web=off ===
+[2026-09-08 06:08:29] hw: free~0.6GB target~9.5GB evicted=[]
+[2026-09-08 06:09:43] outline: 14 sections
+[2026-09-08 06:15:27]     · The Evolution of Software Bill of Materials (S (737w)
+[2026-09-08 06:20:24]     · Mobile Applications as Complex Software Ecosys (948w)
+[2026-09-08 06:26:11]     · Native Libraries and Bundled SDKs: Hidden Vuln (1061w)
+[2026-09-08 06:33:36]     · CycloneDX SBOM Generation for Mobile Applicati (1392w)
+[2026-09-08 06:39:18]     · Matching Components to Known Vulnerabilities a (868w)
+[2026-09-08 06:45:38]     · Privacy Implications and Component Tracking in (857w)
+[2026-09-08 06:45:38]   [01] Introduction to SBOMx and Mobile Application Secur — 5930w
+[2026-09-08 06:50:16]     · SBOM Structure and Metadata in Mobile Applicat (781w)
+[2026-09-08 06:55:28]     · Native Library Unpacking and Component Identif (947w)
+[2026-09-08 06:59:46]     · SDK Integration and Dependency Resolution in M (870w)
+[2026-09-08 07:05:35]     · CycloneDX Schema Adaptation for Mobile-Specifi (853w)
+[2026-09-08 07:10:49]     · Vulnerability Matching with Known-Vulnerabilit (928w)
+[2026-09-08 07:17:16]     · Privacy and Tracking Component Analysis in Mob (1058w)
+[2026-09-08 07:17:16]   [02] CycloneDX SBOM Fundamentals for Mobile Apps — 5492w
+[2026-09-08 07:17:19]   pacing 8s (hot: VRAM 96.6%)
+[2026-09-08 07:17:27]   [03] Unpacking Native Libraries in Mobile Applications — exists, skip
+[2026-09-08 07:17:30]   pacing 8s (hot: VRAM 96.6%)
+[2026-09-08 07:25:30]     · SDK Manifest Parsing and Header Analysis (1255w)
+[2026-09-08 07:32:09]     · Static Analysis of Native Library Dependencies (1045w)
+[2026-09-08 07:36:26]     · Dynamic Linker Inspection for Embedded SDKs (857w)
+[2026-09-08 07:40:55]     · Resource File Signature Matching and Extractio (991w)
+[2026-09-08 07:44:34]     · Reverse Engineering of Obfuscated SDK Binaries (807w)
+[2026-09-08 07:49:48]     · Metadata Extraction from Build Configuration F (1032w)
+[2026-09-08 07:49:48]   [04] Bundled SDKs: Identification and Extraction Techni — 6037w
+[2026-09-08 07:50:00]   [05] Component Classification and Metadata Mapping — exists, skip
+[2026-09-08 07:59:01]     · Mapping Component Identifiers to Known-Vuln Da (1604w)
+[2026-09-08 08:04:33]     · Version-Specific Vulnerability Matching Mechan (988w)
+[2026-09-08 08:11:50]     · Handling Multiple Vulnerabilities per Componen (952w)
+[2026-09-08 08:18:12]     · Cross-Referencing SBOM Components with CVE and (817w)
+[2026-09-08 08:25:38]     · Automated Patch Recommendation Integration (942w)
+[2026-09-08 08:33:26]     · Validation of Vulnerability Matches Against SB (1087w)
+[2026-09-08 08:33:26]   [06] Vulnerability Matching with Known-Vuln Databases — 6438w
+[2026-09-08 08:33:29]   pacing 8s (hot: VRAM 96.6%)
+[2026-09-08 08:42:04]     · Tracker Database Integration with SBOM Compone (1069w)
+[2026-09-08 08:49:01]     · Privacy Risk Scoring Framework for Embedded Tr (1133w)
+[2026-09-08 08:56:18]     · Cross-Platform Tracker Detection in Native Lib (1040w)
+[2026-09-08 09:03:03]     · SDK-Specific Privacy Vulnerabilities and Mitig (958w)
+[2026-09-08 09:10:16]     · Real-Time Privacy Compliance Monitoring via SB (1038w)
+[2026-09-08 09:15:58]     · Case Studies: Privacy Breaches from Undetected (799w)
+[2026-09-08 09:15:58]   [07] Privacy Risk Assessment via Tracker Databases — 6094w
+[2026-09-08 09:21:41]     · Mapping Component Identifiers to Vulnerability (929w)
+[2026-09-08 09:28:50]     · Leveraging CVE-Related Metadata in SBOMs for P (924w)
+[2026-09-08 09:36:16]     · Integrating Known-Vulnerability Data from MITR (995w)
+[2026-09-08 09:43:18]     · Cross-Referencing Component Versions with Advi (967w)
+[2026-09-08 09:52:10]     · Handling Ambiguous or Incomplete Component Des (1140w)
+[2026-09-08 10:11:19]     · Validating Vulnerability Matches Against Compo (1075w)
+[2026-09-08 10:11:19]   [08] Cross-Referencing Components with Open Source Vuln — 6091w
+[2026-09-08 10:20:04]     · Native Library Unpacking Mechanisms (1066w)
+[2026-09-08 10:27:37]     · SDK Component Identification and Extraction (1023w)
+[2026-09-08 10:35:35]     · CycloneDX SBOM Schema Mapping Strategy (1027w)
+[2026-09-08 10:44:45]     · Vulnerability Database Integration Architectur (1153w)
+[2026-09-08 10:54:19]     · Privacy and Tracking Data Correlation Framewor (1117w)
+[2026-09-08 11:01:26]     · Pipeline Orchestration and Error Handling Desi (970w)
+[2026-09-08 11:01:26]   [09] Automated SBOM Generation Pipeline Design — 6399w
+[2026-09-08 11:01:29]   pacing 8s (hot: VRAM 96.6%)
+[2026-09-08 11:08:40]     · CI/CD Pipeline Architecture for SBOM Generatio (871w)
+[2026-09-08 11:16:16]     · Automated Dependency Scanning in Build Stages (1018w)
+[2026-09-08 11:22:45]     · Real-Time Vulnerability Matching with Known-Vu (897w)
+[2026-09-08 11:29:57]     · SBOM Integrity Checks and Version Control Inte (785w)
+[2026-09-08 11:37:23]     · Notification and Remediation Workflows for SBO (971w)
+[2026-09-08 12:04:45]     · Continuous Compliance and Audit Trail Construc (24w)
+[2026-09-08 12:04:45]   [10] Integration with CI/CD for Continuous SBOM Validat — 4619w
+[2026-09-08 12:04:48]   pacing 8s (hot: VRAM 96.6%)
+[2026-09-08 12:14:09]     · Parallel Processing of Component Extraction (1166w)
+[2026-09-08 12:23:09]     · Caching Strategies for Dependency Resolution (1134w)
+[2026-09-08 12:31:02]     · Incremental SBOM Generation Techniques (1072w)
+[2026-09-08 12:39:31]     · Memory Optimization in Native Library Unpackin (1042w)
+[2026-09-08 12:45:31]     · Efficient Matching Against Vulnerability Datab (24w)
+[2026-09-08 12:52:27]     · Pipeline Bottleneck Analysis and Mitigation (837w)
+[2026-09-08 12:52:27]   [11] Performance Optimization of SBOMx Workflows — 5318w
+[2026-09-08 12:52:30]   pacing 8s (hot: VRAM 96.6%)
+[2026-09-08 13:00:42]     · Unpacking the Native Library Ecosystem (1032w)
+[2026-09-08 13:09:28]     · Identifying and Classifying Bundled SDKs (1157w)
+[2026-09-08 13:39:11]     · Mapping Components to Vulnerability Databases (896w)
+[2026-09-08 14:16:11]     · Privacy Risk Assessment via SBOMx Analysis (791w)
+[2026-09-08 14:22:36]     · Dependency Chain Tracing in Mobile Application (863w)
+[2026-09-08 14:29:06]     · Continuous SBOMx Integration in CI/CD Pipeline (883w)
+[2026-09-08 14:29:06]   [12] Case Study: SBOMx in a Real-World Mobile App Stack — 5672w
+[2026-09-08 14:29:10]   pacing 8s (hot: VRAM 96.8%)
+[2026-09-08 14:37:27]     · Dependency Graph Analysis and Attack Surface M (1076w)
+[2026-09-08 14:55:15]     · Vulnerability Correlation with SBOMx Component (932w)
+[2026-09-08 15:04:48]     · SDK and Library Usage Patterns for Privilege E (1222w)
+[2026-09-08 15:06:32]     · Data Flow Tracing via SBOMx-Enabled Static Ana (24w)
+[2026-09-08 15:14:38]     · Cross-Component Interaction Risk Assessment in (995w)
+[2026-09-08 15:23:53]     · SBOMx-Driven Threat Intelligence Integration w (984w)
+[2026-09-08 15:23:53]   [13] Advanced Threat Modeling with SBOMx Data — 5290w
+[2026-09-08 15:23:56]   pacing 8s (hot: VRAM 96.8%)
+[2026-09-08 15:31:48]     · Integration with DevOps Pipelines and CI/CD Sy (835w)
+[2026-09-08 15:46:41]     · Semantic Enrichment of SBOM Data via Ontologie (24w)
+[2026-09-08 15:55:26]     · Real-Time SBOM Generation and Dynamic Componen (1026w)
+[2026-09-08 16:04:22]     · Cross-Platform SBOM Interoperability and Forma (1038w)
+[2026-09-08 16:10:29]     · AI-Driven Vulnerability Prediction and SBOM An (789w)
+[2026-09-08 16:28:20]     · Legal and Compliance Implications of SBOMx in  (1079w)
+[2026-09-08 16:28:20]   [14] Future Directions and Emerging Standards in SBOMx — 4854w
+[2026-09-08 16:28:25]   pacing 8s (hot: VRAM 96.8%)
+[2026-09-08 16:28:33] ASSEMBLED -> C:\Users\user\cognis-enhance\sbomx\docs\corpus\sbomx-engineering-compendium-reference\sbomx-engineering-compendium-reference.md (155,837 words, 26 sections)
+[2026-09-08 16:28:33] === complete · 155,837 words -> C:\Users\user\cognis-enhance\sbomx\docs\corpus\sbomx-engineering-compendium-reference\sbomx-engineering-compendium-reference.md ===
